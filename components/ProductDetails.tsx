@@ -8,12 +8,12 @@ import {
   Image,
   ScrollView,
 } from 'react-native';
-import {fetchProductById, deleteProduct} from '../utils/api';
+import {useDispatch} from 'react-redux';
 import {Product} from './type';
 import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import { RootStackParamList } from './ProductList';
-
+import { deleteProduct } from '../store/productsSlice';
 
 type ProductListNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -21,9 +21,10 @@ type ProductListNavigationProp = StackNavigationProp<
 >;
 
 const ProductDetails = ({route}: {route: any}) => {
-  const {product, updateProduct, deleteProduct} = route.params;
+  const {product, updateProduct} = route.params;
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation<ProductListNavigationProp>();
+  const dispatch = useDispatch();
 
   if (!product) {
     return <Text style={styles.notFound}>Product not found</Text>;
@@ -33,10 +34,8 @@ const ProductDetails = ({route}: {route: any}) => {
 
   const handleProductDelete = async () => {
     try {
-      // await deleteProduct(product.id);
-      if (deleteProduct) {
-        deleteProduct(product.id);
-      }
+      console.log(product.id);
+      dispatch(deleteProduct(product.id));
       Alert.alert('Product deleted successfully');
       navigation.goBack();
     } catch (e) {

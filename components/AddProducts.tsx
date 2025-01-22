@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   TextInput,
@@ -10,12 +10,12 @@ import {
   Text,
 } from 'react-native';
 import {launchImageLibrary} from 'react-native-image-picker';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
-
-import { addProduct } from '../utils/api';
-import { RootStackParamList } from './ProductList';
-import { Product } from './type';
+import {useDispatch} from 'react-redux';
+import {addProduct, updateProduct} from '../store/productsSlice';
+import {RootStackParamList} from './ProductList';
+import {Product} from './type';
 
 type ProductListNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -24,15 +24,14 @@ type ProductListNavigationProp = StackNavigationProp<
 
 const AddProduct = ({route}: {route: any}) => {
   const navigation = useNavigation<ProductListNavigationProp>();
+  const dispatch = useDispatch();
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [isUpdate, setIsUpdate] = useState(false);
-  const [id, setId] = useState<number|null>(null)
-  
-  const {handleAddProduct} = route.params;
+  const [id, setId] = useState<number | null>(null);
 
   useEffect(() => {
     if (route.params?.product) {
@@ -67,21 +66,18 @@ const AddProduct = ({route}: {route: any}) => {
       description,
       category,
       image: imageUri,
-      id : id
+      id,
     };
 
     if (isUpdate) {
-      // Add the API call or logic to update the product here
+      dispatch(updateProduct(product));
       Alert.alert('Product updated successfully');
-      if(handleAddProduct)
-        handleAddProduct(product);
       navigation.pop(2);
     } else {
       try {
-        const data : Product = await addProduct(product);
-        if (handleAddProduct) {
-          handleAddProduct({...product,id:data});
-        }
+        const newProduct = {...product, id: Date.now()};
+        dispatch(addProduct(newProduct));
+        navigation.goBack();
         Alert.alert('Product added successfully');
         navigation.goBack();
       } catch (e) {

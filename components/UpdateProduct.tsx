@@ -1,34 +1,41 @@
-import React, { useState } from 'react';
+import React from 'react'
 import { View, TextInput, Button, StyleSheet, Alert } from 'react-native';
-import { updateProduct } from '../utils/api';
-
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../store';
+import { updateProduct } from '../store/productsSlice';
 
 const UpdateProduct = ({ route }: { route: any }) => {
   const { productId } = route.params;
-  const [title, setTitle] = useState('');
-  const [price, setPrice] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
+  const product = useSelector((state: RootState) =>
+    state.products.products.find(p => p.id === productId)
+  );
+  const dispatch = useDispatch();
+
+  const [title, setTitle] = React.useState(product?.title || '');
+  const [price, setPrice] = React.useState(product?.price.toString() || '');
+  const [description, setDescription] = React.useState(product?.description || '');
+  const [category, setCategory] = React.useState(product?.category || '');
 
   const handleSubmit = () => {
     const updatedProduct = {
+      id: productId,
       title,
       price: parseFloat(price),
       description,
       category,
+      image: product?.image || '',
     };
 
-    updateProduct(productId, updatedProduct)
-      .then(() => Alert.alert('Product updated successfully'))
-      .catch(() => Alert.alert('Failed to update product'));
+    dispatch(updateProduct(updatedProduct));
+    Alert.alert('Product updated successfully');
   };
 
   return (
     <View style={styles.container}>
-      <TextInput placeholder="Title" style={styles.input} onChangeText={setTitle} />
-      <TextInput placeholder="Price" style={styles.input} onChangeText={setPrice} keyboardType="numeric" />
-      <TextInput placeholder="Description" style={styles.input} onChangeText={setDescription} />
-      <TextInput placeholder="Category" style={styles.input} onChangeText={setCategory} />
+      <TextInput placeholder="Title" style={styles.input} value={title} onChangeText={setTitle} />
+      <TextInput placeholder="Price" style={styles.input} value={price} onChangeText={setPrice} keyboardType="numeric" />
+      <TextInput placeholder="Description" style={styles.input} value={description} onChangeText={setDescription} />
+      <TextInput placeholder="Category" style={styles.input} value={category} onChangeText={setCategory} />
       <Button title="Update Product" onPress={handleSubmit} />
     </View>
   );
