@@ -1,18 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { FlatList, Text, View, ActivityIndicator, StyleSheet } from 'react-native';
-import { fetchCategories } from '../utils/api';
+import { useDispatch, useSelector } from 'react-redux';
 
+import { fetchCategories } from '../utils/api';
+import { RootState } from '../store';
+import { setCategories } from '../store/categoriesSlice';
 
 const Categories = () => {
-  const [categories, setCategories] = useState([]);
+  const dispatch = useDispatch();
+  const categories = useSelector((state: RootState) => state.categories.categories);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchCategories()
-      .then(setCategories)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+      .then(data => {
+        dispatch(setCategories(data));
+        setLoading(false);
+      })
+      .catch(console.error);
+  }, [dispatch]);
 
   return (
     <View style={styles.container}>

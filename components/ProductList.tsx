@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -12,11 +12,20 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import {useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import { Product } from './type';
-
+import {AppDispatch} from '../store';
+import {useDispatch, useSelector} from 'react-redux';
+import {RootState} from '../store';
+import {
+  fetchProducts,
+  addProduct,
+  updateProduct,
+  deleteProduct,
+} from '../store/productsSlice';
+import {fetchCategories} from '../store/categoriesSlice';
+import {Product} from './type';
 
 export type RootStackParamList = {
   ProductList: undefined;
@@ -57,53 +66,39 @@ const HighlightedText = ({
           </Text>
         ) : (
           part
-        )
+        ),
       )}
     </Text>
   );
 };
 
-const fetchProducts = async (): Promise<Product[]> => {
-  const response = await fetch('https://fakestoreapi.com/products');
-  const data = await response.json();
-  return data;
-};
-
-const fetchCategories = async (): Promise<string[]> => {
-  const response = await fetch('https://fakestoreapi.com/products/categories');
-  const data = await response.json();
-  return data;
-};
-
 const ProductList = () => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const dispatch: AppDispatch = useDispatch();
+  const products = useSelector((state: RootState) => state.products.products);
+  const categories = useSelector(
+    (state: RootState) => state.categories.categories,
+  );
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
 
   const hasFetched = useRef(false);
   const navigation = useNavigation<ProductListNavigationProp>();
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!hasFetched.current) {
-        const productsData = await fetchProducts();
-        setProducts(productsData);
-        setAllProducts(productsData);
+    if (!hasFetched.current) {
+      dispatch(fetchProducts());
+      dispatch(fetchCategories());
+      hasFetched.current = true;
+    }
+  }, [dispatch]);
 
-        const categoriesData = await fetchCategories();
-        setCategories(categoriesData);
-
-        hasFetched.current = true;
-      }
-    };
-
-    fetchData();
-  }, []);
+  useEffect(() => {
+    setFilteredProducts(products);
+  }, [products]);
 
   const toggleCategorySelection = (category: string) => {
     if (selectedCategories.includes(category)) {
@@ -115,48 +110,50 @@ const ProductList = () => {
 
   const applyFilters = () => {
     if (selectedCategories.length === 0) {
-      setProducts(allProducts);
+      setFilteredProducts(products);
     } else {
-      const filteredProducts = allProducts.filter(product =>
+      const filteredProducts = products.filter(product =>
         selectedCategories.includes(product.category),
       );
-      setProducts(filteredProducts);
+      setFilteredProducts(filteredProducts);
     }
     setIsFilterModalVisible(false);
-    setCurrentPage(1); 
+    setCurrentPage(1);
   };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-  
+
     if (query === '') {
-      setProducts(allProducts);
-      setCurrentPage(1); 
+      setFilteredProducts(products);
+      setCurrentPage(1);
       return;
     }
-  
-    const sortedProducts = [...allProducts].sort((a, b) =>
-      a.title.localeCompare(b.title)
+
+    const sortedProducts = [...products].sort((a, b) =>
+      a.title.localeCompare(b.title),
     );
-  
+
     const binarySearch = (array: Product[], target: string): Product[] => {
       let left = 0;
       let right = array.length - 1;
       const results: Product[] = [];
-  
+
       while (left <= right) {
         const mid = Math.floor((left + right) / 2);
         const midTitle = array[mid].title.toLowerCase();
-  
+
         if (midTitle.startsWith(target)) {
-          
           let index = mid;
-  
-          while (index >= 0 && array[index].title.toLowerCase().startsWith(target)) {
+
+          while (
+            index >= 0 &&
+            array[index].title.toLowerCase().startsWith(target)
+          ) {
             results.push(array[index]);
             index--;
           }
-  
+
           index = mid + 1;
           while (
             index < array.length &&
@@ -165,61 +162,46 @@ const ProductList = () => {
             results.push(array[index]);
             index++;
           }
-  
+
           break;
         }
-  
+
         if (midTitle < target) {
           left = mid + 1;
         } else {
           right = mid - 1;
         }
       }
-  
+
       return results;
     };
-  
-    const filteredProducts = binarySearch(
-      sortedProducts,
-      query.toLowerCase()
-    );
-  
-    setProducts(filteredProducts);
-    setCurrentPage(1); 
+
+    const filteredProducts = binarySearch(sortedProducts, query.toLowerCase());
+
+    setFilteredProducts(filteredProducts);
+    setCurrentPage(1);
   };
-  
 
   const handleAddProduct = (newProduct: Product) => {
-    setProducts(prev => [...prev, newProduct]);
-    setAllProducts(prev => [...prev, newProduct]);
+    dispatch(addProduct(newProduct));
   };
 
   const handleUpdateProduct = (updatedProduct: Product) => {
-    setProducts(prev =>
-      prev.map(product =>
-        product.id === updatedProduct.id ? updatedProduct : product,
-      ),
-    );
-    setAllProducts(prev =>
-      prev.map(product =>
-        product.id === updatedProduct.id ? updatedProduct : product,
-      ),
-    );
+    dispatch(updateProduct(updatedProduct));
   };
 
   const handleDeleteProduct = (productId: number) => {
-    setProducts(prev => prev.filter(product => product.id !== productId));
-    setAllProducts(prev => prev.filter(product => product.id !== productId));
+    dispatch(deleteProduct(productId));
     Alert.alert('Product deleted successfully');
   };
 
-  const paginatedProducts = products.slice(
+  const paginatedProducts = filteredProducts.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
   );
 
   const handleNextPage = () => {
-    if (currentPage * itemsPerPage < products.length) {
+    if (currentPage * itemsPerPage < filteredProducts.length) {
       setCurrentPage(prevPage => prevPage + 1);
     }
   };
@@ -246,34 +228,33 @@ const ProductList = () => {
 
       {/* Product List */}
       <FlatList
-  data={paginatedProducts}
-  renderItem={({ item }: { item: Product }) => (
-    <View style={styles.productCard}>
-      <Image
-        source={{ uri: item.image }}
-        resizeMode="contain"
-        style={styles.productImage}
+        data={paginatedProducts}
+        renderItem={({item}: {item: Product}) => (
+          <View style={styles.productCard}>
+            <Image
+              source={{uri: item.image}}
+              resizeMode="contain"
+              style={styles.productImage}
+            />
+            <HighlightedText text={item.title} highlight={searchQuery} />
+            <Text style={styles.productPrice}>${item.price}</Text>
+            <Button
+              title="View Details"
+              onPress={() =>
+                navigation.navigate('ProductDetails', {
+                  product: item,
+                  updateProduct: handleUpdateProduct,
+                  deleteProduct: handleDeleteProduct,
+                })
+              }
+            />
+          </View>
+        )}
+        keyExtractor={item => item.id!.toString()}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
+        contentContainerStyle={styles.flatListContainer}
       />
-      <HighlightedText text={item.title} highlight={searchQuery} />
-      <Text style={styles.productPrice}>${item.price}</Text>
-      <Button
-        title="View Details"
-        onPress={() =>
-          navigation.navigate('ProductDetails', {
-            product: item,
-            updateProduct: handleUpdateProduct,
-            deleteProduct: handleDeleteProduct,
-          })
-        }
-      />
-    </View>
-  )}
-  keyExtractor={(item) => item.id.toString()}
-  numColumns={2}
-  columnWrapperStyle={styles.row}
-  contentContainerStyle={styles.flatListContainer}
-/>
-
 
       {/* Filter Modal */}
       <Modal
@@ -309,21 +290,25 @@ const ProductList = () => {
       {/* Pagination Controls */}
       <View style={styles.paginationContainer}>
         <TouchableOpacity
-          style={[styles.paginationButton, currentPage === 1 && styles.disabledButton]}
+          style={[
+            styles.paginationButton,
+            currentPage === 1 && styles.disabledButton,
+          ]}
           onPress={handlePreviousPage}
           disabled={currentPage === 1}>
           <Text style={styles.paginationButtonText}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.pageIndicator}>{`Page ${currentPage} of ${Math.ceil(
-          products.length / itemsPerPage,
+          filteredProducts.length / itemsPerPage,
         )}`}</Text>
         <TouchableOpacity
           style={[
             styles.paginationButton,
-            currentPage * itemsPerPage >= products.length && styles.disabledButton,
+            currentPage * itemsPerPage >= filteredProducts.length &&
+              styles.disabledButton,
           ]}
           onPress={handleNextPage}
-          disabled={currentPage * itemsPerPage >= products.length}>
+          disabled={currentPage * itemsPerPage >= filteredProducts.length}>
           <Text style={styles.paginationButtonText}>Next</Text>
         </TouchableOpacity>
       </View>
@@ -348,7 +333,6 @@ const ProductList = () => {
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -403,7 +387,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   highlight: {
-    backgroundColor: 'yellow', 
+    backgroundColor: 'yellow',
     fontWeight: 'bold',
   },
   row: {
