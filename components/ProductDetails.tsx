@@ -61,7 +61,7 @@ const ProductDetails = ({route}: {route: any}) => {
             title="Update Product"
             color="#007BFF"
             onPress={() => {
-              navigation.navigate('AddProduct', {product , handleAddProduct: updateProduct}); // Pass product data
+              navigation.navigate('AddProduct', {product , handleAddProduct: updateProduct}); 
             }}
           />
         </>
