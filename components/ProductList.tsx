@@ -80,7 +80,6 @@ const ProductList = () => {
       prev.includes(category) ? prev.filter((item) => item !== category) : [...prev, category]
     );
   };
-
   const filterByPrice = (arr, min, max) => {
     if (arr.length === 0) return [];
     if (arr.length === 1) return arr[0].price >= min && arr[0].price <= max ? [arr[0]] : [];
@@ -130,7 +129,7 @@ const ProductList = () => {
 
   return (
     <View style={styles.container}>
-      {/* Search Bar */}
+  
       <View style={styles.searchBar}>
         <Icon name="search" size={20} color="#888" style={styles.searchIcon} />
         <TextInput
@@ -141,10 +140,8 @@ const ProductList = () => {
         />
       </View>
 
-      {/* Filter Button */}
       <Button title="Filter" onPress={() => setIsFilterModalVisible(true)} />
 
-      {/* Product List */}
       <FlatList
         data={paginatedProducts}
         renderItem={({ item }) => (
@@ -164,24 +161,20 @@ const ProductList = () => {
         keyExtractor={(item) => item.id.toString()}
       />
 
-      {/* Pagination Controls */}
       <View style={styles.pagination}>
         <Button title="Previous" disabled={currentPage === 1} onPress={() => setCurrentPage((prev) => prev - 1)} />
         <Text>{`Page ${currentPage}`}</Text>
         <Button title="Next" disabled={currentPage * itemsPerPage >= filteredProducts.length} onPress={() => setCurrentPage((prev) => prev + 1)} />
       </View>
 
-      {/* Floating Add Product Button */}
       <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddProduct')}>
         <Icon name="plus" size={24} color="#fff" />
       </TouchableOpacity>
 
-      {/* Wishlist Floating Button */}
       <TouchableOpacity style={styles.wishlistFloatingButton} onPress={() => navigation.navigate('Wishlist')}>
         <Icon name="heart" size={24} color="#fff" />
       </TouchableOpacity>
 
-      {/* Filter Modal */}
       <Modal visible={isFilterModalVisible} transparent animationType="fade" onRequestClose={() => setIsFilterModalVisible(false)}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -199,6 +192,21 @@ const ProductList = () => {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+            <Text style={styles.filterTitle}>Filter by Price</Text>
+            <TextInput
+              style={styles.priceInput}
+              placeholder="Min Price"
+              keyboardType="numeric"
+              value={String(priceRange[0])}
+              onChangeText={(text) => setPriceRange([Number(text), priceRange[1]])}
+            />
+            <TextInput
+              style={styles.priceInput}
+              placeholder="Max Price"
+              keyboardType="numeric"
+              value={String(priceRange[1])}
+              onChangeText={(text) => setPriceRange([priceRange[0], Number(text)])}
+            />
             <Button title="Apply Filters" onPress={applyFilters} />
           </View>
         </View>
@@ -225,6 +233,7 @@ const styles = StyleSheet.create({
   checkbox: { width: 20, height: 20, borderWidth: 1, borderRadius: 4, marginRight: 10 },
   checkboxSelected: { backgroundColor: '#007BFF' },
   categoryLabel: { fontSize: 16 },
+  priceInput: { borderWidth: 1, borderColor: '#ccc', borderRadius: 4, marginBottom: 10, paddingHorizontal: 8, height: 40 },
 });
 
 export default ProductList;
