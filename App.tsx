@@ -8,6 +8,7 @@ import ProductList from './components/ProductList';
 import ProductDetails from './components/ProductDetails';
 import AddProduct from './components/AddProducts';
 import UpdateProduct from './components/UpdateProduct';
+import Wishlist from './components/Wishlist';
 
 const Stack = createStackNavigator();
 
@@ -20,6 +21,7 @@ const App = () => {
           <Stack.Screen name="ProductDetails" component={ProductDetails} options={{ title: 'Product Details' }} />
           <Stack.Screen name="AddProduct" component={AddProduct} options={{ title: 'Add Product' }} />
           <Stack.Screen name="UpdateProduct" component={UpdateProduct} options={{ title: 'Update Product' }} />
+          <Stack.Screen name="Wishlist" component={Wishlist} />
         </Stack.Navigator>
       </NavigationContainer>
     </Provider>
