@@ -29,7 +29,7 @@ const ProductList = () => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [priceRange, setPriceRange] = useState([0, 10000]); // Default price range
+  const [priceRange, setPriceRange] = useState([0, 0]); 
   const [filteredProducts, setFilteredProducts] = useState(products);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -80,6 +80,7 @@ const ProductList = () => {
       prev.includes(category) ? prev.filter((item) => item !== category) : [...prev, category]
     );
   };
+
   const filterByPrice = (arr, min, max) => {
     if (arr.length === 0) return [];
     if (arr.length === 1) return arr[0].price >= min && arr[0].price <= max ? [arr[0]] : [];
@@ -129,7 +130,6 @@ const ProductList = () => {
 
   return (
     <View style={styles.container}>
-  
       <View style={styles.searchBar}>
         <Icon name="search" size={20} color="#888" style={styles.searchIcon} />
         <TextInput
@@ -215,6 +215,7 @@ const ProductList = () => {
   );
 };
 
+// Styles
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
   searchBar: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 8, marginBottom: 16 },
