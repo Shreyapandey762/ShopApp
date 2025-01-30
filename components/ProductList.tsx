@@ -1,92 +1,42 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useState, useRef, useContext} from 'react';
 import {
   View,
   Text,
   Button,
   FlatList,
-  Alert,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
   TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
   Modal,
   ScrollView,
+  Alert,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
-import {StackNavigationProp} from '@react-navigation/stack';
-import Icon from 'react-native-vector-icons/FontAwesome';
-import {AppDispatch} from '../store';
 import {useDispatch, useSelector} from 'react-redux';
-import {RootState} from '../store';
-import {
-  fetchProducts,
-  addProduct,
-  updateProduct,
-  deleteProduct,
-} from '../store/productsSlice';
+import Icon from 'react-native-vector-icons/FontAwesome';
+import {fetchProducts} from '../store/productsSlice';
 import {fetchCategories} from '../store/categoriesSlice';
-import {Product} from './type';
-
-export type RootStackParamList = {
-  ProductList: undefined;
-  ProductDetails: {
-    product: Product;
-    updateProduct: (updatedProduct: Product) => void;
-    deleteProduct: (productId: number) => void;
-  };
-  AddProduct: {
-    product?: Product;
-    handleAddProduct?: (newProduct: Product) => void;
-  };
-};
-
-type ProductListNavigationProp = StackNavigationProp<
-  RootStackParamList,
-  'ProductList'
->;
-
-const HighlightedText = ({
-  text,
-  highlight,
-}: {
-  text: string;
-  highlight: string;
-}) => {
-  if (!highlight) return <Text>{text}</Text>;
-
-  const regex = new RegExp(`(${highlight})`, 'i');
-  const parts = text.split(regex);
-
-  return (
-    <Text>
-      {parts.map((part, index) =>
-        regex.test(part) ? (
-          <Text key={index} style={styles.highlight}>
-            {part}
-          </Text>
-        ) : (
-          part
-        ),
-      )}
-    </Text>
-  );
-};
+import {WishlistContext} from './WishlistContext';
 
 const ProductList = () => {
-  const dispatch: AppDispatch = useDispatch();
-  const products = useSelector((state: RootState) => state.products.products);
-  const categories = useSelector(
-    (state: RootState) => state.categories.categories,
-  );
+  const dispatch = useDispatch();
+  const navigation = useNavigation();
+  const products = useSelector(state => state.products.products);
+  const categories = useSelector(state => state.categories.categories);
+  const {wishlist, addToWishlist, removeFromWishlist} =
+    useContext(WishlistContext)!;
+
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [priceRange, setPriceRange] = useState([0, 10000]); 
+  const [filteredProducts, setFilteredProducts] = useState(products);
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
 
   const hasFetched = useRef(false);
-  const navigation = useNavigation<ProductListNavigationProp>();
 
   useEffect(() => {
     if (!hasFetched.current) {
@@ -100,26 +50,57 @@ const ProductList = () => {
     setFilteredProducts(products);
   }, [products]);
 
+  const toggleWishlist = async (productId: number) => {
+    wishlist.includes(productId)
+      ? removeFromWishlist(productId)
+      : addToWishlist(productId);
+
+    Alert.alert(
+      wishlist.includes(productId)
+        ? 'Removed from Wishlist'
+        : 'Added to Wishlist',
+    );
+  };
+
   const toggleCategorySelection = (category: string) => {
-    if (selectedCategories.includes(category)) {
-      setSelectedCategories(prev => prev.filter(item => item !== category));
-    } else {
-      setSelectedCategories(prev => [...prev, category]);
-    }
+    setSelectedCategories(prev =>
+      prev.includes(category)
+        ? prev.filter(item => item !== category)
+        : [...prev, category],
+    );
+  };
+
+  const filterByPrice = (arr, min, max) => {
+    if (arr.length === 0) return [];
+    if (arr.length === 1)
+      return arr[0].price >= min && arr[0].price <= max ? [arr[0]] : [];
+
+    const mid = Math.floor(arr.length / 2);
+    const left = filterByPrice(arr.slice(0, mid), min, max);
+    const right = filterByPrice(arr.slice(mid), min, max);
+    return [...left, ...right];
   };
 
   const applyFilters = () => {
-    if (selectedCategories.length === 0) {
-      setFilteredProducts(products);
-    } else {
-      const filteredProducts = products.filter(product =>
+    let filtered = products;
+
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter(product =>
         selectedCategories.includes(product.category),
       );
-      setFilteredProducts(filteredProducts);
     }
+
+    filtered = filterByPrice(filtered, priceRange[0], priceRange[1]);
+
+    setFilteredProducts(filtered);
     setIsFilterModalVisible(false);
     setCurrentPage(1);
   };
+
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -134,129 +115,84 @@ const ProductList = () => {
       a.title.localeCompare(b.title),
     );
 
-    const binarySearch = (array: Product[], target: string): Product[] => {
-      let left = 0;
-      let right = array.length - 1;
-      const results: Product[] = [];
+    const filtered = sortedProducts.filter(product =>
+      product.title.toLowerCase().includes(query.toLowerCase()),
+    );
 
-      while (left <= right) {
-        const mid = Math.floor((left + right) / 2);
-        const midTitle = array[mid].title.toLowerCase();
-
-        if (midTitle.startsWith(target)) {
-          let index = mid;
-
-          while (
-            index >= 0 &&
-            array[index].title.toLowerCase().startsWith(target)
-          ) {
-            results.push(array[index]);
-            index--;
-          }
-
-          index = mid + 1;
-          while (
-            index < array.length &&
-            array[index].title.toLowerCase().startsWith(target)
-          ) {
-            results.push(array[index]);
-            index++;
-          }
-
-          break;
-        }
-
-        if (midTitle < target) {
-          left = mid + 1;
-        } else {
-          right = mid - 1;
-        }
-      }
-
-      return results;
-    };
-
-    const filteredProducts = binarySearch(sortedProducts, query.toLowerCase());
-
-    setFilteredProducts(filteredProducts);
+    setFilteredProducts(filtered);
     setCurrentPage(1);
-  };
-
-  const handleAddProduct = (newProduct: Product) => {
-    dispatch(addProduct(newProduct));
-  };
-
-  const handleUpdateProduct = (updatedProduct: Product) => {
-    dispatch(updateProduct(updatedProduct));
-  };
-
-  const handleDeleteProduct = (productId: number) => {
-    dispatch(deleteProduct(productId));
-    Alert.alert('Product deleted successfully');
-  };
-
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
-
-  const handleNextPage = () => {
-    if (currentPage * itemsPerPage < filteredProducts.length) {
-      setCurrentPage(prevPage => prevPage + 1);
-    }
-  };
-
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(prevPage => prevPage - 1);
-    }
   };
 
   return (
     <View style={styles.container}>
-      {/* Search Bar */}
-      <View style={styles.searchBarContainer}>
+      <View style={styles.searchBar}>
         <Icon name="search" size={20} color="#888" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search products"
-          placeholderTextColor="#888"
           value={searchQuery}
           onChangeText={handleSearch}
         />
       </View>
 
-      {/* Product List */}
+      <Button title="Filter" onPress={() => setIsFilterModalVisible(true)} />
+
       <FlatList
         data={paginatedProducts}
-        renderItem={({item}: {item: Product}) => (
+        renderItem={({item}) => (
           <View style={styles.productCard}>
-            <Image
-              source={{uri: item.image}}
-              resizeMode="contain"
-              style={styles.productImage}
-            />
-            <HighlightedText text={item.title} highlight={searchQuery} />
+            <Image source={{uri: item.image}} style={styles.productImage} />
+            <Text style={styles.productTitle}>{item.title}</Text>
             <Text style={styles.productPrice}>${item.price}</Text>
-            <Button
-              title="View Details"
-              onPress={() =>
-                navigation.navigate('ProductDetails', {
-                  product: item,
-                  updateProduct: handleUpdateProduct,
-                  deleteProduct: handleDeleteProduct,
-                })
-              }
-            />
+
+            <View style={styles.buttonRow}>
+              <Button
+                title="View Details"
+                onPress={() =>
+                  navigation.navigate('ProductDetails', {product: item})
+                }
+              />
+              <TouchableOpacity
+                onPress={() => toggleWishlist(item.id)}
+                style={styles.wishlistButton}>
+                <Icon
+                  name={wishlist.includes(item.id) ? 'heart' : 'heart-o'}
+                  size={24}
+                  color={wishlist.includes(item.id) ? 'red' : 'black'}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
         )}
-        keyExtractor={item => item.id!.toString()}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.flatListContainer}
+        keyExtractor={item => item.id.toString()}
       />
 
-      {/* Filter Modal */}
+      <View style={styles.pagination}>
+        <Button
+          title="Previous"
+          disabled={currentPage === 1}
+          onPress={() => setCurrentPage(prev => prev - 1)}
+        />
+        <Text>{`Page ${currentPage}`}</Text>
+        <Button
+          title="Next"
+          disabled={currentPage * itemsPerPage >= filteredProducts.length}
+          onPress={() => setCurrentPage(prev => prev + 1)}
+        />
+      </View>
+
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => navigation.navigate('AddProduct')}>
+        <Icon name="plus" size={24} color="#fff" />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.wishlistFloatingButton}
+        onPress={() => navigation.navigate('Wishlist')}>
+        <Icon name="heart" size={24} color="#fff" />
+      </TouchableOpacity>
+
       <Modal
         visible={isFilterModalVisible}
         transparent
@@ -286,61 +222,13 @@ const ProductList = () => {
           </View>
         </View>
       </Modal>
-
-      {/* Pagination Controls */}
-      <View style={styles.paginationContainer}>
-        <TouchableOpacity
-          style={[
-            styles.paginationButton,
-            currentPage === 1 && styles.disabledButton,
-          ]}
-          onPress={handlePreviousPage}
-          disabled={currentPage === 1}>
-          <Text style={styles.paginationButtonText}>Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.pageIndicator}>{`Page ${currentPage} of ${Math.ceil(
-          filteredProducts.length / itemsPerPage,
-        )}`}</Text>
-        <TouchableOpacity
-          style={[
-            styles.paginationButton,
-            currentPage * itemsPerPage >= filteredProducts.length &&
-              styles.disabledButton,
-          ]}
-          onPress={handleNextPage}
-          disabled={currentPage * itemsPerPage >= filteredProducts.length}>
-          <Text style={styles.paginationButtonText}>Next</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Footer Buttons */}
-      <View style={styles.footerButtons}>
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={() => setIsFilterModalVisible(true)}>
-          <Text style={styles.filterButtonText}>Filter</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() =>
-            navigation.navigate('AddProduct', {
-              handleAddProduct: handleAddProduct,
-            })
-          }>
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#f8f8f8',
-  },
-  searchBarContainer: {
+  container: {flex: 1, padding: 16},
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
@@ -348,76 +236,44 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 8,
     marginBottom: 16,
-    backgroundColor: '#fff',
-    height: 40,
   },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-  },
-  flatListContainer: {
-    paddingBottom: 80,
-  },
-  productCard: {
-    flex: 1,
-    margin: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#fff',
+  searchIcon: {marginRight: 8},
+  searchInput: {flex: 1, fontSize: 16},
+  productCard: {padding: 10, borderWidth: 1, marginBottom: 10},
+  productImage: {width: '100%', height: 150},
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  productImage: {
-    width: 100,
-    height: 100,
-    marginBottom: 8,
-  },
-  productTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  productPrice: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 8,
-  },
-  highlight: {
-    backgroundColor: 'yellow',
-    fontWeight: 'bold',
-  },
-  row: {
+  pagination: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  filterButton: {
-    backgroundColor: '#007BFF',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    flex: 1,
-    marginRight: 8,
-  },
-  filterButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    textAlign: 'center',
+    marginVertical: 10,
   },
   addButton: {
-    backgroundColor: '#28A745',
+    position: 'absolute',
+    bottom: 80,
+    right: 20,
+    backgroundColor: '#007BFF',
     width: 50,
     height: 50,
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 5,
   },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
+  wishlistFloatingButton: {
+    position: 'absolute',
+    bottom: 150,
+    right: 20,
+    backgroundColor: '#FF3B30',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
   },
   modalContainer: {
     flex: 1,
@@ -427,68 +283,25 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#fff',
+    padding: 20,
     borderRadius: 8,
-    padding: 16,
     width: '80%',
   },
-  paginationButton: {
-    backgroundColor: '#007BFF',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  paginationButtonText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  filterTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
+  filterTitle: {fontSize: 18, marginBottom: 10},
   checkboxContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   checkbox: {
     width: 20,
     height: 20,
     borderWidth: 1,
-    borderColor: '#ccc',
-    marginRight: 8,
     borderRadius: 4,
+    marginRight: 10,
   },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-  pageIndicator: {
-    fontSize: 16,
-    color: '#000',
-  },
-  checkboxSelected: {
-    backgroundColor: '#007BFF',
-    borderColor: '#0056b3',
-  },
-  categoryLabel: {
-    fontSize: 16,
-  },
-  footerButtons: {
-    position: 'absolute',
-    bottom: 80, // Adjusted to be above the pagination controls
-    left: 20,
-    right: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  paginationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 16, // Added spacing to avoid overlap with footer buttons
-  },
+  checkboxSelected: {backgroundColor: '#007BFF'},
+  categoryLabel: {fontSize: 16},
 });
 
 export default ProductList;
