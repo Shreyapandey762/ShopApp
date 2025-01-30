@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, {useEffect, useState, useRef, useContext} from 'react';
 import {
   View,
   Text,
@@ -12,24 +12,25 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useDispatch, useSelector } from 'react-redux';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {useNavigation} from '@react-navigation/native';
+import {useDispatch, useSelector} from 'react-redux';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import { fetchProducts } from '../store/productsSlice';
-import { fetchCategories } from '../store/categoriesSlice';
+import {fetchProducts} from '../store/productsSlice';
+import {fetchCategories} from '../store/categoriesSlice';
+import {WishlistContext} from './WishlistContext';
 
 const ProductList = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation();
-  const products = useSelector((state) => state.products.products);
-  const categories = useSelector((state) => state.categories.categories);
+  const products = useSelector(state => state.products.products);
+  const categories = useSelector(state => state.categories.categories);
+  const {wishlist, addToWishlist, removeFromWishlist} =
+    useContext(WishlistContext)!;
 
-  const [wishlist, setWishlist] = useState<number[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [priceRange, setPriceRange] = useState([0, 10000]); // Default price range
+  const [priceRange, setPriceRange] = useState([0, 10000]); 
   const [filteredProducts, setFilteredProducts] = useState(products);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -43,47 +44,36 @@ const ProductList = () => {
       dispatch(fetchCategories());
       hasFetched.current = true;
     }
-    loadWishlist();
   }, [dispatch]);
 
   useEffect(() => {
     setFilteredProducts(products);
   }, [products]);
 
-  const loadWishlist = async () => {
-    try {
-      const storedWishlist = await AsyncStorage.getItem('wishlist');
-      if (storedWishlist) {
-        setWishlist(JSON.parse(storedWishlist));
-      }
-    } catch (error) {
-      console.error('Failed to load wishlist:', error);
-    }
-  };
-
   const toggleWishlist = async (productId: number) => {
-    let updatedWishlist;
-    if (wishlist.includes(productId)) {
-      updatedWishlist = wishlist.filter((id) => id !== productId);
-    } else {
-      updatedWishlist = [...wishlist, productId];
-    }
-    setWishlist(updatedWishlist);
-    await AsyncStorage.setItem('wishlist', JSON.stringify(updatedWishlist));
+    wishlist.includes(productId)
+      ? removeFromWishlist(productId)
+      : addToWishlist(productId);
+
     Alert.alert(
-      wishlist.includes(productId) ? 'Removed from Wishlist' : 'Added to Wishlist'
+      wishlist.includes(productId)
+        ? 'Removed from Wishlist'
+        : 'Added to Wishlist',
     );
   };
 
   const toggleCategorySelection = (category: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(category) ? prev.filter((item) => item !== category) : [...prev, category]
+    setSelectedCategories(prev =>
+      prev.includes(category)
+        ? prev.filter(item => item !== category)
+        : [...prev, category],
     );
   };
 
   const filterByPrice = (arr, min, max) => {
     if (arr.length === 0) return [];
-    if (arr.length === 1) return arr[0].price >= min && arr[0].price <= max ? [arr[0]] : [];
+    if (arr.length === 1)
+      return arr[0].price >= min && arr[0].price <= max ? [arr[0]] : [];
 
     const mid = Math.floor(arr.length / 2);
     const left = filterByPrice(arr.slice(0, mid), min, max);
@@ -95,7 +85,9 @@ const ProductList = () => {
     let filtered = products;
 
     if (selectedCategories.length > 0) {
-      filtered = filtered.filter((product) => selectedCategories.includes(product.category));
+      filtered = filtered.filter(product =>
+        selectedCategories.includes(product.category),
+      );
     }
 
     filtered = filterByPrice(filtered, priceRange[0], priceRange[1]);
@@ -105,7 +97,10 @@ const ProductList = () => {
     setCurrentPage(1);
   };
 
-  const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -120,8 +115,8 @@ const ProductList = () => {
       a.title.localeCompare(b.title),
     );
 
-    const filtered = sortedProducts.filter((product) =>
-      product.title.toLowerCase().includes(query.toLowerCase())
+    const filtered = sortedProducts.filter(product =>
+      product.title.toLowerCase().includes(query.toLowerCase()),
     );
 
     setFilteredProducts(filtered);
@@ -130,7 +125,6 @@ const ProductList = () => {
 
   return (
     <View style={styles.container}>
-      {/* Search Bar */}
       <View style={styles.searchBar}>
         <Icon name="search" size={20} color="#888" style={styles.searchIcon} />
         <TextInput
@@ -141,58 +135,83 @@ const ProductList = () => {
         />
       </View>
 
-      {/* Filter Button */}
       <Button title="Filter" onPress={() => setIsFilterModalVisible(true)} />
 
-      {/* Product List */}
       <FlatList
         data={paginatedProducts}
-        renderItem={({ item }) => (
+        renderItem={({item}) => (
           <View style={styles.productCard}>
-            <Image source={{ uri: item.image }} style={styles.productImage} />
+            <Image source={{uri: item.image}} style={styles.productImage} />
             <Text style={styles.productTitle}>{item.title}</Text>
             <Text style={styles.productPrice}>${item.price}</Text>
 
             <View style={styles.buttonRow}>
-              <Button title="View Details" onPress={() => navigation.navigate('ProductDetails', { product: item })} />
-              <TouchableOpacity onPress={() => toggleWishlist(item.id)} style={styles.wishlistButton}>
-                <Icon name={wishlist.includes(item.id) ? 'heart' : 'heart-o'} size={24} color={wishlist.includes(item.id) ? 'red' : 'black'} />
+              <Button
+                title="View Details"
+                onPress={() =>
+                  navigation.navigate('ProductDetails', {product: item})
+                }
+              />
+              <TouchableOpacity
+                onPress={() => toggleWishlist(item.id)}
+                style={styles.wishlistButton}>
+                <Icon
+                  name={wishlist.includes(item.id) ? 'heart' : 'heart-o'}
+                  size={24}
+                  color={wishlist.includes(item.id) ? 'red' : 'black'}
+                />
               </TouchableOpacity>
             </View>
           </View>
         )}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={item => item.id.toString()}
       />
 
-      {/* Pagination Controls */}
       <View style={styles.pagination}>
-        <Button title="Previous" disabled={currentPage === 1} onPress={() => setCurrentPage((prev) => prev - 1)} />
+        <Button
+          title="Previous"
+          disabled={currentPage === 1}
+          onPress={() => setCurrentPage(prev => prev - 1)}
+        />
         <Text>{`Page ${currentPage}`}</Text>
-        <Button title="Next" disabled={currentPage * itemsPerPage >= filteredProducts.length} onPress={() => setCurrentPage((prev) => prev + 1)} />
+        <Button
+          title="Next"
+          disabled={currentPage * itemsPerPage >= filteredProducts.length}
+          onPress={() => setCurrentPage(prev => prev + 1)}
+        />
       </View>
 
-      {/* Floating Add Product Button */}
-      <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddProduct')}>
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => navigation.navigate('AddProduct')}>
         <Icon name="plus" size={24} color="#fff" />
       </TouchableOpacity>
 
-      {/* Wishlist Floating Button */}
-      <TouchableOpacity style={styles.wishlistFloatingButton} onPress={() => navigation.navigate('Wishlist')}>
+      <TouchableOpacity
+        style={styles.wishlistFloatingButton}
+        onPress={() => navigation.navigate('Wishlist')}>
         <Icon name="heart" size={24} color="#fff" />
       </TouchableOpacity>
 
-      {/* Filter Modal */}
-      <Modal visible={isFilterModalVisible} transparent animationType="fade" onRequestClose={() => setIsFilterModalVisible(false)}>
+      <Modal
+        visible={isFilterModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsFilterModalVisible(false)}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.filterTitle}>Filter by Category</Text>
             <ScrollView>
               {categories.map(category => (
-                <TouchableOpacity key={category} style={styles.checkboxContainer} onPress={() => toggleCategorySelection(category)}>
+                <TouchableOpacity
+                  key={category}
+                  style={styles.checkboxContainer}
+                  onPress={() => toggleCategorySelection(category)}>
                   <View
                     style={[
                       styles.checkbox,
-                      selectedCategories.includes(category) && styles.checkboxSelected,
+                      selectedCategories.includes(category) &&
+                        styles.checkboxSelected,
                     ]}
                   />
                   <Text style={styles.categoryLabel}>{category}</Text>
@@ -208,23 +227,81 @@ const ProductList = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  searchBar: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 8, marginBottom: 16 },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, fontSize: 16 },
-  productCard: { padding: 10, borderWidth: 1, marginBottom: 10 },
-  productImage: { width: '100%', height: 150 },
-  buttonRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  pagination: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 10 },
-  addButton: { position: 'absolute', bottom: 80, right: 20, backgroundColor: '#007BFF', width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', elevation: 5 },
-  wishlistFloatingButton: { position: 'absolute', bottom: 150, right: 20, backgroundColor: '#FF3B30', width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', elevation: 5 },
-  modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#fff', padding: 20, borderRadius: 8, width: '80%' },
-  filterTitle: { fontSize: 18, marginBottom: 10 },
-  checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  checkbox: { width: 20, height: 20, borderWidth: 1, borderRadius: 4, marginRight: 10 },
-  checkboxSelected: { backgroundColor: '#007BFF' },
-  categoryLabel: { fontSize: 16 },
+  container: {flex: 1, padding: 16},
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    marginBottom: 16,
+  },
+  searchIcon: {marginRight: 8},
+  searchInput: {flex: 1, fontSize: 16},
+  productCard: {padding: 10, borderWidth: 1, marginBottom: 10},
+  productImage: {width: '100%', height: 150},
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pagination: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 10,
+  },
+  addButton: {
+    position: 'absolute',
+    bottom: 80,
+    right: 20,
+    backgroundColor: '#007BFF',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+  },
+  wishlistFloatingButton: {
+    position: 'absolute',
+    bottom: 150,
+    right: 20,
+    backgroundColor: '#FF3B30',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 8,
+    width: '80%',
+  },
+  filterTitle: {fontSize: 18, marginBottom: 10},
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderRadius: 4,
+    marginRight: 10,
+  },
+  checkboxSelected: {backgroundColor: '#007BFF'},
+  categoryLabel: {fontSize: 16},
 });
 
 export default ProductList;

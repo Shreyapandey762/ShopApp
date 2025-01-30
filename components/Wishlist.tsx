@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,56 +10,38 @@ import {
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelector } from 'react-redux';
+import { WishlistContext } from './WishlistContext';
+import { Product } from './type';
 
 const Wishlist = () => {
   const navigation = useNavigation();
+  const wishlistContext = useContext(WishlistContext);
+
+  const { wishlist, removeFromWishlist } = wishlistContext!;
   const products = useSelector((state) => state.products.products);
-  const [wishlist, setWishlist] = useState<number[]>([]);
   const [wishlistedProducts, setWishlistedProducts] = useState([]);
 
   useEffect(() => {
-    loadWishlist();
-  }, []);
+    const filteredProducts = products.filter((product : Product) =>
+      wishlist.includes(product.id!)
+    );
+    setWishlistedProducts(filteredProducts);
+  }, [wishlist, products]);
 
-  const loadWishlist = async () => {
-    try {
-      const storedWishlist = await AsyncStorage.getItem('wishlist');
-      if (storedWishlist) {
-        const wishlistIds = JSON.parse(storedWishlist);
-        setWishlist(wishlistIds);
-        const filteredProducts = products.filter((product) =>
-          wishlistIds.includes(product.id)
-        );
-        setWishlistedProducts(filteredProducts);
-      }
-    } catch (error) {
-      console.error('Failed to load wishlist:', error);
-    }
-  };
-
-  const deleteFromWishlist = async (productId: number) => {
+  const handleRemove = (productId: number) => {
     Alert.alert(
       'Remove from Wishlist',
       'Are you sure you want to remove this product from your wishlist?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'OK',
-          onPress: async () => {
-            const updatedWishlist = wishlist.filter((id) => id !== productId);
-            setWishlist(updatedWishlist);
-            setWishlistedProducts(wishlistedProducts.filter((product) => product.id !== productId));
-            await AsyncStorage.setItem('wishlist', JSON.stringify(updatedWishlist));
-          },
-        },
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'OK', onPress: () => removeFromWishlist(productId) },
       ]
     );
   };
+
+
+  if(!wishlistContext) return <>Loading...</>
 
   return (
     <View style={styles.container}>
@@ -77,7 +59,7 @@ const Wishlist = () => {
             />
             <TouchableOpacity
               style={styles.deleteButton}
-              onPress={() => deleteFromWishlist(item.id)}
+              onPress={() => handleRemove(item.id)}
             >
               <Text style={styles.deleteButtonText}>Delete</Text>
             </TouchableOpacity>
