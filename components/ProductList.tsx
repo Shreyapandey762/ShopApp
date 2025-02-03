@@ -83,6 +83,9 @@ const ProductList = () => {
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isSortModalVisible, setIsSortModalVisible] = useState(false);
+const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
   const itemsPerPage = 5;
 
   const hasFetched = useRef(false);
@@ -113,6 +116,31 @@ const ProductList = () => {
     }
   };
 
+  const quickSort = (arr: Product[], order: 'asc' | 'desc'): Product[] => {
+    if (arr.length <= 1) return arr; 
+  
+    const pivot = arr[arr.length - 1]; 
+    const left: Product[] = [];
+    const right: Product[] = [];
+  
+    for (let i = 0; i < arr.length - 1; i++) {
+      if (order === 'asc' ? arr[i].price < pivot.price : arr[i].price > pivot.price) {
+        left.push(arr[i]);
+      } else {
+        right.push(arr[i]);
+      }
+    }
+  
+    return [...quickSort(left, order), pivot, ...quickSort(right, order)];
+  };
+
+  const handleSort = (order: 'asc' | 'desc') => {
+    setSortOrder(order);
+    const sortedProducts = quickSort([...products], order);
+    setProducts(sortedProducts);
+    setIsSortModalVisible(false);
+  };
+  
   const applyFilters = () => {
     if (selectedCategories.length === 0) {
       setProducts(allProducts);
@@ -232,7 +260,6 @@ const ProductList = () => {
 
   return (
     <View style={styles.container}>
-      {/* Search Bar */}
       <View style={styles.searchBarContainer}>
         <Icon name="search" size={20} color="#888" style={styles.searchIcon} />
         <TextInput
@@ -244,7 +271,6 @@ const ProductList = () => {
         />
       </View>
 
-      {/* Product List */}
       <FlatList
   data={paginatedProducts}
   renderItem={({ item }: { item: Product }) => (
@@ -274,8 +300,40 @@ const ProductList = () => {
   contentContainerStyle={styles.flatListContainer}
 />
 
+<Modal
+  visible={isSortModalVisible}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setIsSortModalVisible(false)}
+>
+  <View style={styles.modalContainer}>
+    <View style={styles.modalContent}>
+      <Text style={styles.sortTitle}>Sort by Price</Text>
+      <TouchableOpacity
+        style={styles.sortOption}
+        onPress={() => handleSort('asc')}
+      >
+        <Text style={styles.sortText}>Low - high</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.sortOption}
+        onPress={() => handleSort('desc')}
+      >
+        <Text style={styles.sortText}>High - low</Text>
+      </TouchableOpacity>
+      <Button title="Close" onPress={() => setIsSortModalVisible(false)} />
+    </View>
+  </View>
+</Modal>
 
-      {/* Filter Modal */}
+<TouchableOpacity
+  style={styles.sortButton}
+  onPress={() => setIsSortModalVisible(true)}
+>
+  <Text style={styles.sortButtonText}>Sort</Text>
+</TouchableOpacity>
+
+
       <Modal
         visible={isFilterModalVisible}
         transparent
@@ -306,7 +364,6 @@ const ProductList = () => {
         </View>
       </Modal>
 
-      {/* Pagination Controls */}
       <View style={styles.paginationContainer}>
         <TouchableOpacity
           style={[styles.paginationButton, currentPage === 1 && styles.disabledButton]}
@@ -328,7 +385,7 @@ const ProductList = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Footer Buttons */}
+    
       <View style={styles.footerButtons}>
         <TouchableOpacity
           style={styles.filterButton}
@@ -403,19 +460,25 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   highlight: {
-    backgroundColor: 'yellow', 
+    backgroundColor: 'yellow',
     fontWeight: 'bold',
   },
   row: {
     justifyContent: 'space-between',
+  },
+  sortButton: {
+    backgroundColor: '#007BFF',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginRight: 8,  
   },
   filterButton: {
     backgroundColor: '#007BFF',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
-    flex: 1,
-    marginRight: 8,
+    marginLeft: 8, 
   },
   filterButtonText: {
     color: '#fff',
@@ -490,20 +553,44 @@ const styles = StyleSheet.create({
   categoryLabel: {
     fontSize: 16,
   },
+
   footerButtons: {
     position: 'absolute',
-    bottom: 80, // Adjusted to be above the pagination controls
+    bottom: 80,
     left: 20,
     right: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: 16, 
   },
   paginationContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 16, // Added spacing to avoid overlap with footer buttons
+    marginBottom: 16, 
+  },
+
+  sortButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  sortOption: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+  },
+  sortText: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+
+  sortTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
   },
 });
 
